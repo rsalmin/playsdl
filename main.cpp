@@ -64,7 +64,7 @@ bool initSDLImage()
 
 std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, const SDL_PixelFormat* pixelFormat)
 {
-  SDL_Surface* surface = SDL_LoadBMP( path.c_str() );
+  SDL_Surface* surface = IMG_Load( path.c_str() );
   if (NULL == surface)
   {
       std::cerr << "Unable to load image! SDL_error: " << SDL_GetError() << std::endl;
@@ -97,15 +97,15 @@ int main()
 
     SDL_Surface* screenSurface = SDL_GetWindowSurface( window.get() );
 
-    auto peaceImage = loadSurface("media/peace.bmp", screenSurface->format);
+    auto peaceImage = loadSurface("media/peace.png", screenSurface->format);
     if ( !peaceImage )
         return -1;
 
-    auto upImage = loadSurface("media/up.bmp", screenSurface->format);
+    auto upImage = loadSurface("media/up.png", screenSurface->format);
     if ( !upImage )
         return -1;
 
-    auto defaultImage = loadSurface("media/default.bmp", screenSurface->format);
+    auto defaultImage = loadSurface("media/default.png", screenSurface->format);
     if ( !defaultImage )
         return -1;
 
