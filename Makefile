@@ -1,6 +1,6 @@
 SDL2_CFLAGS = $(shell sdl2-config --cflags)
 CXX_FLAGS = $(SDL2_CFLAGS)
-LD_FLAGS = -lSDL2
+LD_FLAGS = $(shell pkg-config --libs SDL2_image)
 
 all: sdlplay
 

@@ -1,7 +1,9 @@
 #include <iostream>
 #include <memory>
 #include <filesystem>
+
 #include <SDL.h>
+#include <SDL_image.h>
 
 template<>
 class std::default_delete<SDL_Window>
@@ -44,8 +46,20 @@ std::unique_ptr<SDL_Window> init(int width, int height)
             std::cerr << "Window could not be created! SDL_error: " << SDL_GetError() << std::endl;
             return nullptr;
         }
-        return std::unique_ptr<SDL_Window>(window);
+
+         return std::unique_ptr<SDL_Window>(window);
     }
+}
+
+bool initSDLImage()
+{
+    int imgFlags = IMG_INIT_PNG;
+    if ( !(IMG_Init( imgFlags ) & imgFlags ) )
+    {
+        std::cerr << "SDL_image could not be initialized! SDL_image Error: " << IMG_GetError() << std::endl;
+        return false;
+    }
+    return true;
 }
 
 std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, const SDL_PixelFormat* pixelFormat)
@@ -77,6 +91,10 @@ int main()
     auto window = init(SCREEN_WIDTH, SCREEN_HEIGHT);
     if ( !window )
         return -1;
+
+    if ( ! initSDLImage() )
+        return -1;
+
     SDL_Surface* screenSurface = SDL_GetWindowSurface( window.get() );
 
     auto peaceImage = loadSurface("media/peace.bmp", screenSurface->format);
