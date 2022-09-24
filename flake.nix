@@ -14,16 +14,11 @@
 
           installFlags = [ "PREFIX=$(out)" ];
 
-          buildInputs = with pkgs; [ SDL2 ];
+          buildInputs = with pkgs; [ SDL2 plan9port ];
     };
 
     packages.x86_64-linux.default = self.packages.x86_64-linux.playsdl;
 
-    devShell.x86_64-linux = pkgs.stdenv.mkDerivation {
-        name = "ok";
-
-        buildInputs = with pkgs; [ SDL2 plan9port];
-    };
 
   };
 }
