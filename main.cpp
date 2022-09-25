@@ -118,12 +118,23 @@ std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, cons
 
 std::unique_ptr<SDL_Texture> loadTexture(const std::filesystem::path& path, const std::unique_ptr<SDL_Renderer>& renderer)
 {
-  SDL_Texture* texture = IMG_LoadTexture( renderer.get(), path.c_str() );
-  if (NULL == texture )
+  SDL_Surface* surface = IMG_Load( path.c_str() );
+  if (NULL == surface )
   {
-      std::cerr << "Unable to load texture from " << path << "! SDL_error: " << SDL_GetError() << std::endl;
+      std::cerr << "Unable to load surface from " << path << "! IMG_error: " << IMG_GetError() << std::endl;
       return nullptr;
   }
+
+  SDL_SetColorKey( surface, SDL_TRUE, SDL_MapRGB( surface->format, 0xFF, 0xFF, 0xFF ) );
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface( renderer.get(), surface );
+  if (NULL == texture )
+  {
+      std::cerr << "Unable to create texture from " << path << "! SDL_error: " << SDL_GetError() << std::endl;
+      return nullptr;
+  }
+
+  SDL_FreeSurface( surface );
 
   return std::unique_ptr<SDL_Texture>(texture);
 }
@@ -151,8 +162,8 @@ void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, in
 int main()
 {
     //Screen dimension constants
-    const int SCREEN_WIDTH = 640;
-    const int SCREEN_HEIGHT = 480;
+    const int SCREEN_WIDTH = 1280;
+    const int SCREEN_HEIGHT = 960;
 
     auto window = initWindow(SCREEN_WIDTH, SCREEN_HEIGHT);
     if ( !window )
@@ -179,6 +190,17 @@ int main()
     if ( !defaultImage )
         return -1;
 
+    auto landscapeImage = loadTexture("media/tree.png", renderer);
+    if ( !landscapeImage )
+        return -1;
+
+    SDL_Rect wholeViewport {
+        .x = 0,
+        .y = 0,
+        .w = SCREEN_WIDTH,
+        .h = SCREEN_HEIGHT
+    };
+
     SDL_Rect topLeftViewport {
         .x = 0,
         .y = 0,
@@ -186,12 +208,12 @@ int main()
         .h = SCREEN_HEIGHT / 2
     };
 
-    SDL_Rect topRightViewport {
-        .x = SCREEN_WIDTH / 2,
-        .y = 0,
-        .w = SCREEN_WIDTH / 2,
-        .h = SCREEN_HEIGHT / 2
-    };
+    //SDL_Rect topRightViewport {
+    //    .x = SCREEN_WIDTH / 2,
+   //     .y = 0,
+   //     .w = SCREEN_WIDTH / 2,
+   //     .h = SCREEN_HEIGHT / 2
+   // };
 
     SDL_Rect bottomViewport {
         .x = 0,
@@ -241,14 +263,17 @@ int main()
                              break;
                      }
                   }
-            SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0xFF, 0xFF );
-            SDL_RenderClear( renderer.get() );
+            //SDL_SetRenderDrawColor( renderer.get(), 0x00, 0x00, 0xFF, 0xFF );
+            //SDL_RenderClear( renderer.get() );
+            SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+            SDL_RenderCopy( renderer.get(), landscapeImage.get(), NULL, NULL );
 
             SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
             SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
 
-            SDL_RenderSetViewport( renderer.get(), &topRightViewport);
-            SDL_RenderCopy( renderer.get(), currentTexture, NULL, NULL );
+            SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+            SDL_Rect renderQuad = { .x = 832, .y = 192, .w = 256, .h = 256 };
+            SDL_RenderCopy( renderer.get(), currentTexture, NULL, &renderQuad);
 
             SDL_RenderSetViewport( renderer.get(), &bottomViewport);
             renderGeometry(renderer, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
