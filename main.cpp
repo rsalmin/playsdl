@@ -128,6 +128,31 @@ std::unique_ptr<SDL_Texture> loadTexture(const std::filesystem::path& path, cons
   return std::unique_ptr<SDL_Texture>(texture);
 }
 
+void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, int height)
+{
+    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0xFF, 0xFF );
+    SDL_RenderClear( renderer.get() );
+
+    SDL_Rect fillRect = { width / 4, height / 4, width / 2, height / 2 };
+    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0x00, 0x00, 0xFF );
+    SDL_RenderFillRect( renderer.get(), &fillRect );
+
+    SDL_Rect outlineRect = { width / 6, height / 6, width * 2 / 3, height * 2 / 3 };
+    SDL_SetRenderDrawColor( renderer.get(), 0x00, 0xFF, 0x00, 0xFF );
+    SDL_RenderDrawRect( renderer.get(), &outlineRect );
+
+    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0x00, 0xFF );
+    SDL_RenderDrawLine( renderer.get(), 0, height / 2, width, height / 2 );
+
+    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0x00, 0xFF );
+    for ( int i = 0; i < height; i += 4)
+    {
+        SDL_RenderDrawPoint( renderer.get(), width / 2, i );
+    }
+
+    SDL_RenderPresent( renderer.get() );
+}
+
 int main()
 {
     //Screen dimension constants
@@ -184,6 +209,10 @@ int main()
                              quit = true;
                              std::cout << "Key: Q! Exiting...." << std::endl;
                              break;
+                        case SDLK_g:
+                             currentTexture = nullptr;
+                             std::cout << "Key: g" << std::endl;
+                             break;
                          case SDLK_UP:
                              currentTexture = upImage.get();
                              std::cout << "Key: Up" << std::endl;
@@ -206,9 +235,16 @@ int main()
                              break;
                      }
                   }
-        SDL_RenderClear( renderer.get() );
-        SDL_RenderCopy( renderer.get(), currentTexture, NULL, NULL );
-        SDL_RenderPresent( renderer.get() );
+        if ( nullptr != currentTexture )
+        {
+            SDL_RenderClear( renderer.get() );
+            SDL_RenderCopy( renderer.get(), currentTexture, NULL, NULL );
+            SDL_RenderPresent( renderer.get() );
+        }
+        else
+        {
+            renderGeometry(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
+        }
         }
     }
 
