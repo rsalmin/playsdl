@@ -25,8 +25,28 @@ public:
     }
 };
 
+template<>
+class std::default_delete<SDL_Renderer>
+{
+public:
+    void operator()(SDL_Renderer *ptr) const
+    {
+        SDL_DestroyRenderer( ptr );
+    }
+};
 
-std::unique_ptr<SDL_Window> init(int width, int height)
+template<>
+class std::default_delete<SDL_Texture>
+{
+public:
+    void operator()(SDL_Texture *ptr) const
+    {
+        SDL_DestroyTexture( ptr );
+    }
+};
+
+
+std::unique_ptr<SDL_Window> initWindow(int width, int height)
 {
     if (SDL_Init( SDL_INIT_VIDEO ) < 0 )
     {
@@ -49,6 +69,20 @@ std::unique_ptr<SDL_Window> init(int width, int height)
 
          return std::unique_ptr<SDL_Window>(window);
     }
+}
+
+std::unique_ptr<SDL_Renderer> initRenderer(const std::unique_ptr<SDL_Window>& window)
+{
+    SDL_Renderer *renderer = SDL_CreateRenderer( window.get(), -1, SDL_RENDERER_ACCELERATED );
+    if ( NULL == renderer )
+    {
+        std::cerr << "Renderer could not be created! SDL_error: " << SDL_GetError() << std::endl;
+        return nullptr;
+    }
+
+    SDL_SetRenderDrawColor( renderer, 0xFF, 0xFF, 0xFF, 0xFF );
+
+    return std::unique_ptr<SDL_Renderer>(renderer);
 }
 
 bool initSDLImage()
@@ -82,14 +116,30 @@ std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, cons
   return std::unique_ptr<SDL_Surface>(optimizedSurface);
 }
 
+std::unique_ptr<SDL_Texture> loadTexture(const std::filesystem::path& path, const std::unique_ptr<SDL_Renderer>& renderer)
+{
+  SDL_Texture* texture = IMG_LoadTexture( renderer.get(), path.c_str() );
+  if (NULL == texture )
+  {
+      std::cerr << "Unable to load texture from " << path << "! SDL_error: " << SDL_GetError() << std::endl;
+      return nullptr;
+  }
+
+  return std::unique_ptr<SDL_Texture>(texture);
+}
+
 int main()
 {
     //Screen dimension constants
     const int SCREEN_WIDTH = 640;
     const int SCREEN_HEIGHT = 480;
 
-    auto window = init(SCREEN_WIDTH, SCREEN_HEIGHT);
+    auto window = initWindow(SCREEN_WIDTH, SCREEN_HEIGHT);
     if ( !window )
+        return -1;
+
+    auto renderer = initRenderer(window);
+    if ( !renderer )
         return -1;
 
     if ( ! initSDLImage() )
@@ -97,15 +147,15 @@ int main()
 
     SDL_Surface* screenSurface = SDL_GetWindowSurface( window.get() );
 
-    auto peaceImage = loadSurface("media/peace.png", screenSurface->format);
+    auto peaceImage = loadTexture("media/peace.png", renderer);
     if ( !peaceImage )
         return -1;
 
-    auto upImage = loadSurface("media/up.png", screenSurface->format);
+    auto upImage = loadTexture("media/up.png", renderer);
     if ( !upImage )
         return -1;
 
-    auto defaultImage = loadSurface("media/default.png", screenSurface->format);
+    auto defaultImage = loadTexture("media/default.png", renderer);
     if ( !defaultImage )
         return -1;
 
@@ -115,14 +165,9 @@ int main()
     stretchRect.w = SCREEN_WIDTH;
     stretchRect.h = SCREEN_HEIGHT;
 
-    //SDL_BlitSurface( peaceImage.get(), NULL, screenSurface, NULL );
-    SDL_BlitScaled( upImage.get(), NULL, screenSurface, &stretchRect);
-    //SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0xFF, 0xFF, 0xFF ) );
-    SDL_UpdateWindowSurface( window.get() );
-
     SDL_Event e;
     bool quit = false;
-    SDL_Surface *currentSurface = peaceImage.get();
+    SDL_Texture *currentTexture = peaceImage.get();
     while ( !quit )
     {
         while ( SDL_PollEvent( &e ) )
@@ -140,30 +185,30 @@ int main()
                              std::cout << "Key: Q! Exiting...." << std::endl;
                              break;
                          case SDLK_UP:
-                             currentSurface = upImage.get();
+                             currentTexture = upImage.get();
                              std::cout << "Key: Up" << std::endl;
                              break;
                          case SDLK_DOWN:
-                             currentSurface = upImage.get();
+                             currentTexture = upImage.get();
                              std::cout << "Key: Down" << std::endl;
                              break;
                          case SDLK_LEFT:
-                             currentSurface = upImage.get();
+                             currentTexture = upImage.get();
                              std::cout << "Key: Left" << std::endl;
                              break;
                          case SDLK_RIGHT:
-                             currentSurface = upImage.get();
+                             currentTexture = upImage.get();
                              std::cout << "Key: Right" << std::endl;
                              break;
                          default:
-                             currentSurface = defaultImage.get();
+                             currentTexture = defaultImage.get();
                              std::cout << "Key: Any Other :)" << std::endl;
                              break;
                      }
                   }
-        screenSurface = SDL_GetWindowSurface( window.get() );
-        SDL_BlitScaled( currentSurface, NULL, screenSurface, &stretchRect);
-        SDL_UpdateWindowSurface( window.get() );
+        SDL_RenderClear( renderer.get() );
+        SDL_RenderCopy( renderer.get(), currentTexture, NULL, NULL );
+        SDL_RenderPresent( renderer.get() );
         }
     }
 
