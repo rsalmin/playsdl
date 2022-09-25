@@ -130,9 +130,6 @@ std::unique_ptr<SDL_Texture> loadTexture(const std::filesystem::path& path, cons
 
 void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, int height)
 {
-    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0xFF, 0xFF );
-    SDL_RenderClear( renderer.get() );
-
     SDL_Rect fillRect = { width / 4, height / 4, width / 2, height / 2 };
     SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0x00, 0x00, 0xFF );
     SDL_RenderFillRect( renderer.get(), &fillRect );
@@ -149,8 +146,6 @@ void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, in
     {
         SDL_RenderDrawPoint( renderer.get(), width / 2, i );
     }
-
-    SDL_RenderPresent( renderer.get() );
 }
 
 int main()
@@ -184,11 +179,26 @@ int main()
     if ( !defaultImage )
         return -1;
 
-    SDL_Rect stretchRect;
-    stretchRect.x = 0;
-    stretchRect.y = 0;
-    stretchRect.w = SCREEN_WIDTH;
-    stretchRect.h = SCREEN_HEIGHT;
+    SDL_Rect topLeftViewport {
+        .x = 0,
+        .y = 0,
+        .w = SCREEN_WIDTH / 2,
+        .h = SCREEN_HEIGHT / 2
+    };
+
+    SDL_Rect topRightViewport {
+        .x = SCREEN_WIDTH / 2,
+        .y = 0,
+        .w = SCREEN_WIDTH / 2,
+        .h = SCREEN_HEIGHT / 2
+    };
+
+    SDL_Rect bottomViewport {
+        .x = 0,
+        .y = SCREEN_HEIGHT / 2,
+        .w = SCREEN_WIDTH,
+        .h = SCREEN_HEIGHT / 2
+    };
 
     SDL_Event e;
     bool quit = false;
@@ -208,10 +218,6 @@ int main()
                          case SDLK_q:
                              quit = true;
                              std::cout << "Key: Q! Exiting...." << std::endl;
-                             break;
-                        case SDLK_g:
-                             currentTexture = nullptr;
-                             std::cout << "Key: g" << std::endl;
                              break;
                          case SDLK_UP:
                              currentTexture = upImage.get();
@@ -235,16 +241,19 @@ int main()
                              break;
                      }
                   }
-        if ( nullptr != currentTexture )
-        {
+            SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0xFF, 0xFF );
             SDL_RenderClear( renderer.get() );
+
+            SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
+            SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
+
+            SDL_RenderSetViewport( renderer.get(), &topRightViewport);
             SDL_RenderCopy( renderer.get(), currentTexture, NULL, NULL );
+
+            SDL_RenderSetViewport( renderer.get(), &bottomViewport);
+            renderGeometry(renderer, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+
             SDL_RenderPresent( renderer.get() );
-        }
-        else
-        {
-            renderGeometry(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
-        }
         }
     }
 
