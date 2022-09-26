@@ -194,6 +194,10 @@ int main()
     if ( !landscapeImage )
         return -1;
 
+    auto circlesImage = loadTexture("media/circles4.png", renderer);
+    if ( !circlesImage )
+        return -1;
+
     SDL_Rect wholeViewport {
         .x = 0,
         .y = 0,
@@ -221,6 +225,11 @@ int main()
         .w = SCREEN_WIDTH,
         .h = SCREEN_HEIGHT / 2
     };
+
+    std::array<SDL_Rect, 4> clips;
+    for(int i = 0; i < 2; i++)
+        for(int j = 0; j < 2; j++)
+            clips[i*2 + j] = {.x = i*128, .y = j*128, .w = 128, .h = 128 };
 
     SDL_Event e;
     bool quit = false;
@@ -272,6 +281,16 @@ int main()
             SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
 
             SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+
+            std::array<SDL_Rect, 4> rects;
+            for(int i = 0; i < 2; i++)
+                for(int j = 0; j < 2; j++)
+                    rects[i*2 +j] = { .x = 160 + 320*(i*2 + j), .y = 820, .w = 128, .h = 128 };
+
+            for(int i = 0; i < 4; i++)
+                SDL_RenderCopy( renderer.get(), circlesImage.get(), &clips[i], &rects[i]);
+
+
             SDL_Rect renderQuad = { .x = 832, .y = 192, .w = 256, .h = 256 };
             SDL_RenderCopy( renderer.get(), currentTexture, NULL, &renderQuad);
 
