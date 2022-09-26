@@ -234,6 +234,10 @@ int main()
     SDL_Event e;
     bool quit = false;
     SDL_Texture *currentTexture = peaceImage.get();
+    std::uint8_t rComponent = 0xFF;
+    std::uint8_t gComponent = 0xFF;
+    std::uint8_t bComponent = 0xFF;
+
     while ( !quit )
     {
         while ( SDL_PollEvent( &e ) )
@@ -246,6 +250,30 @@ int main()
                   {
                      switch (e.key.keysym.sym)
                      {
+                         case SDLK_w:
+                             rComponent += 32;
+                             std::cout << "Key: W! Exiting...." << std::endl;
+                             break;
+                         case SDLK_e:
+                             gComponent += 32;
+                             std::cout << "Key: E! Exiting...." << std::endl;
+                             break;
+                         case SDLK_r:
+                             bComponent += 32;
+                             std::cout << "Key: R! Exiting...." << std::endl;
+                             break;
+                        case SDLK_s:
+                             rComponent -= 32;
+                             std::cout << "Key: S! Exiting...." << std::endl;
+                             break;
+                         case SDLK_d:
+                             gComponent -= 32;
+                             std::cout << "Key: D! Exiting...." << std::endl;
+                             break;
+                         case SDLK_f:
+                             bComponent -= 32;
+                             std::cout << "Key: F! Exiting...." << std::endl;
+                             break;
                          case SDLK_q:
                              quit = true;
                              std::cout << "Key: Q! Exiting...." << std::endl;
@@ -275,6 +303,7 @@ int main()
             //SDL_SetRenderDrawColor( renderer.get(), 0x00, 0x00, 0xFF, 0xFF );
             //SDL_RenderClear( renderer.get() );
             SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+            SDL_SetTextureColorMod( landscapeImage.get(), rComponent, gComponent, bComponent );
             SDL_RenderCopy( renderer.get(), landscapeImage.get(), NULL, NULL );
 
             SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
