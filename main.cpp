@@ -195,6 +195,7 @@ int main()
         return -1;
 
     auto circlesImage = loadTexture("media/circles4.png", renderer);
+    SDL_SetTextureBlendMode(circlesImage.get(), SDL_BLENDMODE_BLEND);
     if ( !circlesImage )
         return -1;
 
@@ -237,6 +238,7 @@ int main()
     std::uint8_t rComponent = 0xFF;
     std::uint8_t gComponent = 0xFF;
     std::uint8_t bComponent = 0xFF;
+    std::uint8_t aComponent = 0xFF;
 
     while ( !quit )
     {
@@ -262,6 +264,10 @@ int main()
                              bComponent += 32;
                              std::cout << "Key: R! Exiting...." << std::endl;
                              break;
+                         case SDLK_t:
+                             aComponent += 32;
+                             std::cout << "Key: T! Exiting...." << std::endl;
+                             break;
                         case SDLK_s:
                              rComponent -= 32;
                              std::cout << "Key: S! Exiting...." << std::endl;
@@ -274,7 +280,11 @@ int main()
                              bComponent -= 32;
                              std::cout << "Key: F! Exiting...." << std::endl;
                              break;
-                         case SDLK_q:
+                         case SDLK_g:
+                             aComponent -= 32;
+                             std::cout << "Key: G! Exiting...." << std::endl;
+                             break;
+                        case SDLK_q:
                              quit = true;
                              std::cout << "Key: Q! Exiting...." << std::endl;
                              break;
@@ -316,6 +326,7 @@ int main()
                 for(int j = 0; j < 2; j++)
                     rects[i*2 +j] = { .x = 160 + 320*(i*2 + j), .y = 820, .w = 128, .h = 128 };
 
+            SDL_SetTextureAlphaMod( circlesImage.get(), aComponent );
             for(int i = 0; i < 4; i++)
                 SDL_RenderCopy( renderer.get(), circlesImage.get(), &clips[i], &rects[i]);
 
