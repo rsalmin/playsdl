@@ -4,6 +4,7 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_ttf.h>
 
 template<>
 class std::default_delete<SDL_Window>

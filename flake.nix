@@ -14,7 +14,7 @@
 
           installFlags = [ "PREFIX=$(out)" ];
 
-          buildInputs = with pkgs; [ SDL2 SDL2_image pkg-config plan9port ];
+          buildInputs = with pkgs; [ SDL2 SDL2_image SDL2_ttf pkg-config plan9port ];
     };
 
     packages.x86_64-linux.default = self.packages.x86_64-linux.sdlplay;
