@@ -73,7 +73,8 @@ std::unique_ptr<SDL_Window> initWindow(int width, int height)
 
 std::unique_ptr<SDL_Renderer> initRenderer(const std::unique_ptr<SDL_Window>& window)
 {
-    SDL_Renderer *renderer = SDL_CreateRenderer( window.get(), -1, SDL_RENDERER_ACCELERATED );
+    SDL_Renderer *renderer = SDL_CreateRenderer( window.get(), -1,
+            SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC );
     if ( NULL == renderer )
     {
         std::cerr << "Renderer could not be created! SDL_error: " << SDL_GetError() << std::endl;
@@ -159,6 +160,40 @@ void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, in
     }
 }
 
+void renderBackground(const std::unique_ptr<SDL_Renderer>& renderer,
+    const std::unique_ptr<SDL_Texture>& landscapeImage,
+    const std::unique_ptr<SDL_Texture>& peaceImage,
+    const SDL_Rect& wholeViewport,
+    int rComponent, int gComponent, int bComponent)
+{
+    SDL_Rect topLeftViewport {
+        .x = 0,
+        .y = 0,
+        .w = wholeViewport.w / 2,
+        .h = wholeViewport.h  / 2
+    };
+
+    SDL_Rect bottomViewport {
+        .x = 0,
+        .y = wholeViewport.h  / 2,
+        .w = wholeViewport.w,
+        .h = wholeViewport.h  / 2
+    };
+
+
+    //SDL_SetRenderDrawColor( renderer.get(), 0x00, 0x00, 0xFF, 0xFF );
+    //SDL_RenderClear( renderer.get() );
+    SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+    SDL_SetTextureColorMod( landscapeImage.get(), rComponent, gComponent, bComponent );
+    SDL_RenderCopy( renderer.get(), landscapeImage.get(), NULL, NULL );
+
+    SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
+    SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
+
+    SDL_RenderSetViewport( renderer.get(), &bottomViewport);
+    renderGeometry(renderer, bottomViewport.w, bottomViewport.h);
+}
+
 int main()
 {
     //Screen dimension constants
@@ -199,6 +234,10 @@ int main()
     if ( !circlesImage )
         return -1;
 
+    auto walkingSprites = loadTexture("media/walkingSprites.png", renderer);
+    if ( !walkingSprites )
+        return -1;
+
     SDL_Rect wholeViewport {
         .x = 0,
         .y = 0,
@@ -206,40 +245,30 @@ int main()
         .h = SCREEN_HEIGHT
     };
 
-    SDL_Rect topLeftViewport {
-        .x = 0,
-        .y = 0,
-        .w = SCREEN_WIDTH / 2,
-        .h = SCREEN_HEIGHT / 2
-    };
-
-    //SDL_Rect topRightViewport {
-    //    .x = SCREEN_WIDTH / 2,
-   //     .y = 0,
-   //     .w = SCREEN_WIDTH / 2,
-   //     .h = SCREEN_HEIGHT / 2
-   // };
-
-    SDL_Rect bottomViewport {
-        .x = 0,
-        .y = SCREEN_HEIGHT / 2,
-        .w = SCREEN_WIDTH,
-        .h = SCREEN_HEIGHT / 2
-    };
+    enum class ArrowState { Up, Down, Left, Right, Default };
 
     std::array<SDL_Rect, 4> clips;
     for(int i = 0; i < 2; i++)
         for(int j = 0; j < 2; j++)
             clips[i*2 + j] = {.x = i*128, .y = j*128, .w = 128, .h = 128 };
 
+
+    std::array<SDL_Rect, 4> spriteClips;
+    spriteClips[0] = {.x = 10, .y = 0,  .w = 108, .h = 128 };
+    spriteClips[1] = {.x = 138, .y = 0, .w = 108, .h = 128 };
+    spriteClips[2] = {.x = 266, .y = 0, .w = 108, .h = 128 };
+    spriteClips[3] = {.x = 394, .y = 0, .w = 108, .h = 128 };
+
+    SDL_Rect renderQuad = { .x = 832, .y = 192, .w = 256, .h = 256 };
+
     SDL_Event e;
+    std::uint32_t iFrame = 0;
     bool quit = false;
-    SDL_Texture *currentTexture = peaceImage.get();
     std::uint8_t rComponent = 0xFF;
     std::uint8_t gComponent = 0xFF;
     std::uint8_t bComponent = 0xFF;
     std::uint8_t aComponent = 0xFF;
-
+    ArrowState arrowState { ArrowState::Default };
     while ( !quit )
     {
         while ( SDL_PollEvent( &e ) )
@@ -289,37 +318,50 @@ int main()
                              std::cout << "Key: Q! Exiting...." << std::endl;
                              break;
                          case SDLK_UP:
-                             currentTexture = upImage.get();
+                             arrowState = ArrowState::Up;
                              std::cout << "Key: Up" << std::endl;
                              break;
                          case SDLK_DOWN:
-                             currentTexture = upImage.get();
+                             arrowState = ArrowState::Down;
                              std::cout << "Key: Down" << std::endl;
                              break;
                          case SDLK_LEFT:
-                             currentTexture = upImage.get();
+                             arrowState = ArrowState::Left;
                              std::cout << "Key: Left" << std::endl;
                              break;
                          case SDLK_RIGHT:
-                             currentTexture = upImage.get();
+                             arrowState = ArrowState::Right;
                              std::cout << "Key: Right" << std::endl;
                              break;
                          default:
-                             currentTexture = defaultImage.get();
+                             arrowState = ArrowState::Default;
                              std::cout << "Key: Any Other :)" << std::endl;
                              break;
                      }
                   }
-            //SDL_SetRenderDrawColor( renderer.get(), 0x00, 0x00, 0xFF, 0xFF );
-            //SDL_RenderClear( renderer.get() );
-            SDL_RenderSetViewport( renderer.get(), &wholeViewport);
-            SDL_SetTextureColorMod( landscapeImage.get(), rComponent, gComponent, bComponent );
-            SDL_RenderCopy( renderer.get(), landscapeImage.get(), NULL, NULL );
 
-            SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
-            SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
-
+            renderBackground(renderer, landscapeImage, peaceImage,  wholeViewport,
+                                             rComponent, gComponent, bComponent );
             SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+
+            switch (arrowState)
+            {
+                case ArrowState::Up:
+                    SDL_RenderCopy( renderer.get(), upImage.get(), NULL, &renderQuad);
+                    break;
+                case ArrowState::Down:
+                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 180, NULL, SDL_FLIP_NONE);
+                    break;
+                case ArrowState::Left:
+                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 270, NULL, SDL_FLIP_NONE);
+                    break;
+                 case ArrowState::Right:
+                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 90, NULL, SDL_FLIP_NONE);
+                    break;
+                case ArrowState::Default:
+                    SDL_RenderCopy( renderer.get(), defaultImage.get(), NULL, &renderQuad);
+                    break;
+           }
 
             std::array<SDL_Rect, 4> rects;
             for(int i = 0; i < 2; i++)
@@ -330,14 +372,13 @@ int main()
             for(int i = 0; i < 4; i++)
                 SDL_RenderCopy( renderer.get(), circlesImage.get(), &clips[i], &rects[i]);
 
-
-            SDL_Rect renderQuad = { .x = 832, .y = 192, .w = 256, .h = 256 };
-            SDL_RenderCopy( renderer.get(), currentTexture, NULL, &renderQuad);
-
-            SDL_RenderSetViewport( renderer.get(), &bottomViewport);
-            renderGeometry(renderer, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+           SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+            const auto iClip = ( iFrame / 4 ) % 4;
+            SDL_Rect walkingRect = {.x = SCREEN_WIDTH / 2 - 64, .y = SCREEN_HEIGHT / 2 - 64, .w = 128, .h = 128};
+            SDL_RenderCopy( renderer.get(), walkingSprites.get(), &spriteClips[iClip], &walkingRect );
 
             SDL_RenderPresent( renderer.get() );
+            iFrame++;
         }
     }
 
