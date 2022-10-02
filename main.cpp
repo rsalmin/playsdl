@@ -1,6 +1,8 @@
 #include <iostream>
 #include <memory>
 #include <filesystem>
+#include <optional>
+#include <cassert>
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -46,6 +48,44 @@ public:
     }
 };
 
+class Context
+{
+public:
+    explicit Context(std::unique_ptr<SDL_Window>&& window, std::unique_ptr<SDL_Renderer>&& renderer):
+        m_window(std::move(window)), m_renderer(std::move(renderer)) {}
+
+    SDL_Renderer* renderer() noexcept { return m_renderer.get(); }
+
+protected:
+    std::unique_ptr<SDL_Window> m_window;
+    std::unique_ptr<SDL_Renderer> m_renderer;
+};
+
+class Texture
+{
+public:
+    Texture(SDL_Texture* texture, int w, int h): m_texture(texture), m_w(w), m_h(h)
+    {
+        assert( texture );
+    }
+
+    void setBlendMode(const SDL_BlendMode& blendMode)
+    {
+        SDL_SetTextureBlendMode(m_texture.get(), blendMode);
+    }
+
+    void setColorMod(const std::uint8_t r, std::uint8_t g, std::uint8_t b)
+    {
+        SDL_SetTextureColorMod( m_texture.get(), r, g, b );
+    }
+
+    SDL_Texture* texture() noexcept { return m_texture.get(); }
+
+protected:
+    std::unique_ptr<SDL_Texture> m_texture;
+    int m_w {0};
+    int m_h {0};
+};
 
 std::unique_ptr<SDL_Window> initWindow(int width, int height)
 {
@@ -118,54 +158,79 @@ std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, cons
   return std::unique_ptr<SDL_Surface>(optimizedSurface);
 }
 
-std::unique_ptr<SDL_Texture> loadTexture(const std::filesystem::path& path, const std::unique_ptr<SDL_Renderer>& renderer)
+std::optional<Texture> loadTexture(const std::filesystem::path& path, Context& ctx)
 {
   SDL_Surface* surface = IMG_Load( path.c_str() );
   if (NULL == surface )
   {
       std::cerr << "Unable to load surface from " << path << "! IMG_error: " << IMG_GetError() << std::endl;
-      return nullptr;
+      return std::nullopt;
   }
 
   SDL_SetColorKey( surface, SDL_TRUE, SDL_MapRGB( surface->format, 0xFF, 0xFF, 0xFF ) );
 
-  SDL_Texture* texture = SDL_CreateTextureFromSurface( renderer.get(), surface );
+  SDL_Texture* texture = SDL_CreateTextureFromSurface( ctx.renderer(), surface );
   if (NULL == texture )
   {
       std::cerr << "Unable to create texture from " << path << "! SDL_error: " << SDL_GetError() << std::endl;
-      return nullptr;
+      return std::nullopt;
   }
+
+  Texture r(texture, surface->w, surface->h);
 
   SDL_FreeSurface( surface );
 
-  return std::unique_ptr<SDL_Texture>(texture);
+  return r;
 }
 
-void renderGeometry(const std::unique_ptr<SDL_Renderer>& renderer, int width, int height)
+std::optional<Texture> textureFromText(const std::string& text,  const std::unique_ptr<TTF_Font>& font, const SDL_Color& color, const std::unique_ptr<SDL_Renderer>& renderer)
+{
+  SDL_Surface* surface = TTF_RenderText_Solid( font.get(), text.c_str(), color );
+  if (NULL == surface )
+  {
+      std::cerr << "Unable to render text from " << text << "! SDL_ttf Error: " << TTF_GetError() << std::endl;
+      return std::nullopt;
+  }
+
+  SDL_Texture* texture = SDL_CreateTextureFromSurface( renderer.get(), surface );
+  const int w = surface->w;
+  const int h = surface->h;
+  SDL_FreeSurface( surface );
+
+  if (NULL == texture )
+  {
+      std::cerr << "Unable to create texture from sufrace ! SDL_error: " << SDL_GetError() << std::endl;
+      return std::nullopt;
+  }
+
+  return Texture(texture, w, h);
+}
+
+void renderGeometry(Context& ctx, int width, int height)
 {
     SDL_Rect fillRect = { width / 4, height / 4, width / 2, height / 2 };
-    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0x00, 0x00, 0xFF );
-    SDL_RenderFillRect( renderer.get(), &fillRect );
+    SDL_SetRenderDrawColor( ctx.renderer(), 0xFF, 0x00, 0x00, 0xFF );
+    SDL_RenderFillRect( ctx.renderer(), &fillRect );
 
     SDL_Rect outlineRect = { width / 6, height / 6, width * 2 / 3, height * 2 / 3 };
-    SDL_SetRenderDrawColor( renderer.get(), 0x00, 0xFF, 0x00, 0xFF );
-    SDL_RenderDrawRect( renderer.get(), &outlineRect );
+    SDL_SetRenderDrawColor( ctx.renderer(), 0x00, 0xFF, 0x00, 0xFF );
+    SDL_RenderDrawRect( ctx.renderer(), &outlineRect );
 
-    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0x00, 0xFF );
-    SDL_RenderDrawLine( renderer.get(), 0, height / 2, width, height / 2 );
+    SDL_SetRenderDrawColor( ctx.renderer(), 0xFF, 0xFF, 0x00, 0xFF );
+    SDL_RenderDrawLine( ctx.renderer(), 0, height / 2, width, height / 2 );
 
-    SDL_SetRenderDrawColor( renderer.get(), 0xFF, 0xFF, 0x00, 0xFF );
+    SDL_SetRenderDrawColor( ctx.renderer(), 0xFF, 0xFF, 0x00, 0xFF );
     for ( int i = 0; i < height; i += 4)
     {
-        SDL_RenderDrawPoint( renderer.get(), width / 2, i );
+        SDL_RenderDrawPoint( ctx.renderer(), width / 2, i );
     }
 }
 
-void renderBackground(const std::unique_ptr<SDL_Renderer>& renderer,
-    const std::unique_ptr<SDL_Texture>& landscapeImage,
-    const std::unique_ptr<SDL_Texture>& peaceImage,
+void renderBackground(Context& ctx,
+    Texture& landscapeImage,
+    Texture& peaceImage,
     const SDL_Rect& wholeViewport,
-    int rComponent, int gComponent, int bComponent)
+    std::uint8_t rComponent, std::uint8_t gComponent, std::uint8_t bComponent)
 {
     SDL_Rect topLeftViewport {
         .x = 0,
@@ -184,15 +249,32 @@ void renderBackground(const std::unique_ptr<SDL_Renderer>& renderer,
 
     //SDL_SetRenderDrawColor( renderer.get(), 0x00, 0x00, 0xFF, 0xFF );
     //SDL_RenderClear( renderer.get() );
-    SDL_RenderSetViewport( renderer.get(), &wholeViewport);
-    SDL_SetTextureColorMod( landscapeImage.get(), rComponent, gComponent, bComponent );
-    SDL_RenderCopy( renderer.get(), landscapeImage.get(), NULL, NULL );
+    SDL_RenderSetViewport( ctx.renderer(), &wholeViewport);
+    landscapeImage.setColorMod( rComponent, gComponent, bComponent );
+    SDL_RenderCopy( ctx.renderer(), landscapeImage.texture(), NULL, NULL );
 
-    SDL_RenderSetViewport( renderer.get(), &topLeftViewport);
-    SDL_RenderCopy( renderer.get(), peaceImage.get(), NULL, NULL );
+    SDL_RenderSetViewport( ctx.renderer(), &topLeftViewport);
+    SDL_RenderCopy( ctx.renderer(), peaceImage.texture(), NULL, NULL );
 
-    SDL_RenderSetViewport( renderer.get(), &bottomViewport);
-    renderGeometry(renderer, bottomViewport.w, bottomViewport.h);
+    SDL_RenderSetViewport( ctx.renderer(), &bottomViewport);
+    renderGeometry( ctx, bottomViewport.w, bottomViewport.h);
+}
+
+
+std::optional<Context> createContext(int widht, int height)
+{
+    auto window = initWindow(widht, height);
+    if ( !window )
+        return std::nullopt;
+
+    auto renderer = initRenderer(window);
+    if ( !renderer )
+        return std::nullopt;
+
+    if ( ! initSDLImage() )
+        return std::nullopt;
+
+    return Context(std::move(window), std::move(renderer));
 }
 
 int main()
@@ -201,43 +283,41 @@ int main()
     const int SCREEN_WIDTH = 1280;
     const int SCREEN_HEIGHT = 960;
 
-    auto window = initWindow(SCREEN_WIDTH, SCREEN_HEIGHT);
-    if ( !window )
+    auto contextOpt = createContext(SCREEN_WIDTH, SCREEN_HEIGHT);
+    if ( !contextOpt )
         return -1;
+    auto context = std::move(contextOpt).value();
 
-    auto renderer = initRenderer(window);
-    if ( !renderer )
+    auto peaceImageOpt = loadTexture("media/peace.png", context);
+    if ( !peaceImageOpt )
         return -1;
+    auto peaceImage = std::move(peaceImageOpt).value();
 
-    if ( ! initSDLImage() )
+    auto upImageOpt = loadTexture("media/up.png", context);
+    if ( !upImageOpt )
         return -1;
+    auto upImage = std::move(upImageOpt).value();
 
-    SDL_Surface* screenSurface = SDL_GetWindowSurface( window.get() );
-
-    auto peaceImage = loadTexture("media/peace.png", renderer);
-    if ( !peaceImage )
+    auto defaultImageOpt = loadTexture("media/default.png", context);
+    if ( !defaultImageOpt )
         return -1;
+    auto defaultImage = std::move(defaultImageOpt).value();
 
-    auto upImage = loadTexture("media/up.png", renderer);
-    if ( !upImage )
+    auto landscapeImageOpt = loadTexture("media/tree.png", context);
+    if ( !landscapeImageOpt )
         return -1;
+    auto landscapeImage = std::move(landscapeImageOpt).value();
 
-    auto defaultImage = loadTexture("media/default.png", renderer);
-    if ( !defaultImage )
+    auto circlesImageOpt = loadTexture("media/circles4.png", context);
+    if ( !circlesImageOpt )
         return -1;
+    auto circlesImage = std::move(circlesImageOpt).value();
+    circlesImage.setBlendMode(SDL_BLENDMODE_BLEND);
 
-    auto landscapeImage = loadTexture("media/tree.png", renderer);
-    if ( !landscapeImage )
+    auto walkingSpritesOpt = loadTexture("media/walkingSprites.png", context);
+    if ( !walkingSpritesOpt )
         return -1;
-
-    auto circlesImage = loadTexture("media/circles4.png", renderer);
-    SDL_SetTextureBlendMode(circlesImage.get(), SDL_BLENDMODE_BLEND);
-    if ( !circlesImage )
-        return -1;
-
-    auto walkingSprites = loadTexture("media/walkingSprites.png", renderer);
-    if ( !walkingSprites )
-        return -1;
+    auto walkingSprites = std::move(walkingSpritesOpt).value();
 
     SDL_Rect wholeViewport {
         .x = 0,
@@ -341,26 +421,26 @@ int main()
                      }
                   }
 
-            renderBackground(renderer, landscapeImage, peaceImage,  wholeViewport,
+            renderBackground(context, landscapeImage, peaceImage,  wholeViewport,
                                              rComponent, gComponent, bComponent );
-            SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+            SDL_RenderSetViewport( context.renderer(), &wholeViewport);
 
             switch (arrowState)
             {
                 case ArrowState::Up:
-                    SDL_RenderCopy( renderer.get(), upImage.get(), NULL, &renderQuad);
+                    SDL_RenderCopy( context.renderer(), upImage.texture(), NULL, &renderQuad);
                     break;
                 case ArrowState::Down:
-                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 180, NULL, SDL_FLIP_NONE);
+                    SDL_RenderCopyEx( context.renderer(), upImage.texture(), NULL, &renderQuad, 180, NULL, SDL_FLIP_NONE);
                     break;
                 case ArrowState::Left:
-                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 270, NULL, SDL_FLIP_NONE);
+                    SDL_RenderCopyEx( context.renderer(), upImage.texture(), NULL, &renderQuad, 270, NULL, SDL_FLIP_NONE);
                     break;
                  case ArrowState::Right:
-                    SDL_RenderCopyEx( renderer.get(), upImage.get(), NULL, &renderQuad, 90, NULL, SDL_FLIP_NONE);
+                    SDL_RenderCopyEx( context.renderer(), upImage.texture(), NULL, &renderQuad, 90, NULL, SDL_FLIP_NONE);
                     break;
                 case ArrowState::Default:
-                    SDL_RenderCopy( renderer.get(), defaultImage.get(), NULL, &renderQuad);
+                    SDL_RenderCopy( context.renderer(), defaultImage.texture(), NULL, &renderQuad);
                     break;
            }
 
@@ -369,16 +449,16 @@ int main()
                 for(int j = 0; j < 2; j++)
                     rects[i*2 +j] = { .x = 160 + 320*(i*2 + j), .y = 820, .w = 128, .h = 128 };
 
-            SDL_SetTextureAlphaMod( circlesImage.get(), aComponent );
+            SDL_SetTextureAlphaMod( circlesImage.texture(), aComponent );
             for(int i = 0; i < 4; i++)
-                SDL_RenderCopy( renderer.get(), circlesImage.get(), &clips[i], &rects[i]);
+                SDL_RenderCopy( context.renderer(), circlesImage.texture(), &clips[i], &rects[i]);
 
-           SDL_RenderSetViewport( renderer.get(), &wholeViewport);
+           SDL_RenderSetViewport( context.renderer(), &wholeViewport);
             const auto iClip = ( iFrame / 4 ) % 4;
             SDL_Rect walkingRect = {.x = SCREEN_WIDTH / 2 - 64, .y = SCREEN_HEIGHT / 2 - 64, .w = 128, .h = 128};
-            SDL_RenderCopy( renderer.get(), walkingSprites.get(), &spriteClips[iClip], &walkingRect );
+            SDL_RenderCopy( context.renderer(), walkingSprites.texture(), &spriteClips[iClip], &walkingRect );
 
-            SDL_RenderPresent( renderer.get() );
+            SDL_RenderPresent( context.renderer() );
             iFrame++;
         }
     }
