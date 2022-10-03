@@ -48,6 +48,16 @@ public:
     }
 };
 
+template<>
+class std::default_delete<TTF_Font>
+{
+public:
+    void operator()(TTF_Font *ptr) const
+    {
+        TTF_CloseFont( ptr );
+    }
+};
+
 class Context
 {
 public:
@@ -80,6 +90,9 @@ public:
     }
 
     SDL_Texture* texture() noexcept { return m_texture.get(); }
+
+    int width() const noexcept {return m_w;}
+    int height() const noexcept {return m_h;}
 
 protected:
     std::unique_ptr<SDL_Texture> m_texture;
@@ -127,15 +140,16 @@ std::unique_ptr<SDL_Renderer> initRenderer(const std::unique_ptr<SDL_Window>& wi
     return std::unique_ptr<SDL_Renderer>(renderer);
 }
 
-bool initSDLImage()
+std::unique_ptr<TTF_Font> loadFont(const std::filesystem::path& path)
 {
-    int imgFlags = IMG_INIT_PNG;
-    if ( !(IMG_Init( imgFlags ) & imgFlags ) )
+    TTF_Font *font = TTF_OpenFont( path.c_str(), 28);
+    if ( NULL == font )
     {
-        std::cerr << "SDL_image could not be initialized! SDL_image Error: " << IMG_GetError() << std::endl;
-        return false;
+        std::cerr << "Failed to load lazy font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+        return nullptr;
     }
-    return true;
+
+    return std::unique_ptr<TTF_Font>(font);
 }
 
 std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, const SDL_PixelFormat* pixelFormat)
@@ -183,7 +197,7 @@ std::optional<Texture> loadTexture(const std::filesystem::path& path, Context& c
   return r;
 }
 
-std::optional<Texture> textureFromText(const std::string& text,  const std::unique_ptr<TTF_Font>& font, const SDL_Color& color, const std::unique_ptr<SDL_Renderer>& renderer)
+std::optional<Texture> textureFromText(Context& ctx, const std::string& text,  const std::unique_ptr<TTF_Font>& font, const SDL_Color& color)
 {
   SDL_Surface* surface = TTF_RenderText_Solid( font.get(), text.c_str(), color );
   if (NULL == surface )
@@ -192,7 +206,7 @@ std::optional<Texture> textureFromText(const std::string& text,  const std::uniq
       return std::nullopt;
   }
 
-  SDL_Texture* texture = SDL_CreateTextureFromSurface( renderer.get(), surface );
+  SDL_Texture* texture = SDL_CreateTextureFromSurface( ctx.renderer(), surface );
   const int w = surface->w;
   const int h = surface->h;
   SDL_FreeSurface( surface );
@@ -271,8 +285,18 @@ std::optional<Context> createContext(int widht, int height)
     if ( !renderer )
         return std::nullopt;
 
-    if ( ! initSDLImage() )
+    int imgFlags = IMG_INIT_PNG;
+    if ( !(IMG_Init( imgFlags ) & imgFlags ) )
+    {
+        std::cerr << "SDL_image could not be initialized! SDL_image Error: " << IMG_GetError() << std::endl;
         return std::nullopt;
+    }
+
+    if ( -1 == TTF_Init() )
+    {
+        std::cerr << "SDL_ttf could not be initialized! SDL_ttf Error: " << TTF_GetError() << std::endl;
+        return std::nullopt;
+    }
 
     return Context(std::move(window), std::move(renderer));
 }
@@ -318,6 +342,16 @@ int main()
     if ( !walkingSpritesOpt )
         return -1;
     auto walkingSprites = std::move(walkingSpritesOpt).value();
+
+    auto font = loadFont("media/lazy.ttf");
+    if ( !font )
+        return -1;
+
+    SDL_Color textColor = {0, 0, 0};
+    auto textTextureOpt = textureFromText(context, "The quick brown fox jumps over the lazy dogs, ну типа..", font, textColor);
+    if ( !textTextureOpt )
+        return -1;
+    auto textTexture =std::move(textTextureOpt).value();
 
     SDL_Rect wholeViewport {
         .x = 0,
@@ -457,6 +491,13 @@ int main()
             const auto iClip = ( iFrame / 4 ) % 4;
             SDL_Rect walkingRect = {.x = SCREEN_WIDTH / 2 - 64, .y = SCREEN_HEIGHT / 2 - 64, .w = 128, .h = 128};
             SDL_RenderCopy( context.renderer(), walkingSprites.texture(), &spriteClips[iClip], &walkingRect );
+
+            SDL_Rect rText { .x = ( SCREEN_WIDTH - textTexture.width() ) / 2,
+                                         .y = (SCREEN_HEIGHT - textTexture.height() ) / 2,
+                                         .w = textTexture.width(),
+                                         .h = textTexture.height()
+                                       };
+            SDL_RenderCopy( context.renderer(), textTexture.texture(), NULL, &rText);
 
             SDL_RenderPresent( context.renderer() );
             iFrame++;
