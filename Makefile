@@ -4,7 +4,7 @@ LD_FLAGS = $(shell pkg-config --libs SDL2_image SDL2_ttf)
 
 all: sdlplay
 
-OBJ = src/main.o src/context.o
+OBJ = src/main.o src/context.o src/texture.o
 
 sdlplay: $(OBJ)
 	$(CXX) -o $@ $^ $(LD_FLAGS)

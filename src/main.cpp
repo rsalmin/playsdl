@@ -9,6 +9,7 @@
 #include <SDL_ttf.h>
 
 #include "context.hpp"
+#include "texture.hpp"
 
 template<>
 class std::default_delete<SDL_Surface>
@@ -20,15 +21,6 @@ public:
     }
 };
 
-template<>
-class std::default_delete<SDL_Texture>
-{
-public:
-    void operator()(SDL_Texture *ptr) const
-    {
-        SDL_DestroyTexture( ptr );
-    }
-};
 
 template<>
 class std::default_delete<TTF_Font>
@@ -40,34 +32,6 @@ public:
     }
 };
 
-class Texture
-{
-public:
-    Texture(SDL_Texture* texture, int w, int h): m_texture(texture), m_w(w), m_h(h)
-    {
-        assert( texture );
-    }
-
-    void setBlendMode(const SDL_BlendMode& blendMode)
-    {
-        SDL_SetTextureBlendMode(m_texture.get(), blendMode);
-    }
-
-    void setColorMod(const std::uint8_t r, std::uint8_t g, std::uint8_t b)
-    {
-        SDL_SetTextureColorMod( m_texture.get(), r, g, b );
-    }
-
-    SDL_Texture* texture() noexcept { return m_texture.get(); }
-
-    int width() const noexcept {return m_w;}
-    int height() const noexcept {return m_h;}
-
-protected:
-    std::unique_ptr<SDL_Texture> m_texture;
-    int m_w {0};
-    int m_h {0};
-};
 
 std::unique_ptr<TTF_Font> loadFont(const std::filesystem::path& path)
 {
@@ -99,54 +63,6 @@ std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, cons
 
   SDL_FreeSurface(surface);
   return std::unique_ptr<SDL_Surface>(optimizedSurface);
-}
-
-std::optional<Texture> loadTexture(const std::filesystem::path& path, Context& ctx)
-{
-  SDL_Surface* surface = IMG_Load( path.c_str() );
-  if (NULL == surface )
-  {
-      std::cerr << "Unable to load surface from " << path << "! IMG_error: " << IMG_GetError() << std::endl;
-      return std::nullopt;
-  }
-
-  SDL_SetColorKey( surface, SDL_TRUE, SDL_MapRGB( surface->format, 0xFF, 0xFF, 0xFF ) );
-
-  SDL_Texture* texture = SDL_CreateTextureFromSurface( ctx.renderer(), surface );
-  if (NULL == texture )
-  {
-      std::cerr << "Unable to create texture from " << path << "! SDL_error: " << SDL_GetError() << std::endl;
-      return std::nullopt;
-  }
-
-  Texture r(texture, surface->w, surface->h);
-
-  SDL_FreeSurface( surface );
-
-  return r;
-}
-
-std::optional<Texture> textureFromText(Context& ctx, const std::string& text,  const std::unique_ptr<TTF_Font>& font, const SDL_Color& color)
-{
-  SDL_Surface* surface = TTF_RenderText_Solid( font.get(), text.c_str(), color );
-  if (NULL == surface )
-  {
-      std::cerr << "Unable to render text from " << text << "! SDL_ttf Error: " << TTF_GetError() << std::endl;
-      return std::nullopt;
-  }
-
-  SDL_Texture* texture = SDL_CreateTextureFromSurface( ctx.renderer(), surface );
-  const int w = surface->w;
-  const int h = surface->h;
-  SDL_FreeSurface( surface );
-
-  if (NULL == texture )
-  {
-      std::cerr << "Unable to create texture from sufrace ! SDL_error: " << SDL_GetError() << std::endl;
-      return std::nullopt;
-  }
-
-  return Texture(texture, w, h);
 }
 
 void renderGeometry(Context& ctx, int width, int height)
