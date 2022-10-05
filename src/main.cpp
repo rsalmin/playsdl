@@ -10,60 +10,8 @@
 
 #include "context.hpp"
 #include "texture.hpp"
-
-template<>
-class std::default_delete<SDL_Surface>
-{
-public:
-    void operator()(SDL_Surface *ptr) const
-    {
-        SDL_FreeSurface( ptr );
-    }
-};
-
-
-template<>
-class std::default_delete<TTF_Font>
-{
-public:
-    void operator()(TTF_Font *ptr) const
-    {
-        TTF_CloseFont( ptr );
-    }
-};
-
-
-std::unique_ptr<TTF_Font> loadFont(const std::filesystem::path& path)
-{
-    TTF_Font *font = TTF_OpenFont( path.c_str(), 28);
-    if ( NULL == font )
-    {
-        std::cerr << "Failed to load lazy font! SDL_ttf Error: " << TTF_GetError() << std::endl;
-        return nullptr;
-    }
-
-    return std::unique_ptr<TTF_Font>(font);
-}
-
-std::unique_ptr<SDL_Surface> loadSurface(const std::filesystem::path& path, const SDL_PixelFormat* pixelFormat)
-{
-  SDL_Surface* surface = IMG_Load( path.c_str() );
-  if (NULL == surface)
-  {
-      std::cerr << "Unable to load image! SDL_error: " << SDL_GetError() << std::endl;
-      return nullptr;
-  }
-
-  SDL_Surface* optimizedSurface = SDL_ConvertSurface( surface, pixelFormat,  0);
-  if (NULL == optimizedSurface)
-  {
-      std::cerr << "Unable to optimize image! SDL_error: " << SDL_GetError() << std::endl;
-      return nullptr;
-  }
-
-  SDL_FreeSurface(surface);
-  return std::unique_ptr<SDL_Surface>(optimizedSurface);
-}
+#include "surface.hpp"
+#include "font.hpp"
 
 void renderGeometry(Context& ctx, int width, int height)
 {
