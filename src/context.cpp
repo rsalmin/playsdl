@@ -49,9 +49,9 @@ std::unique_ptr<SDL_Renderer> initRenderer(const std::unique_ptr<SDL_Window>& wi
     return std::unique_ptr<SDL_Renderer>(renderer);
 }
 
-std::optional<Context> createContext(int widht, int height)
+std::optional<Context> createContext(int width, int height)
 {
-    auto window = initWindow(widht, height);
+    auto window = initWindow(width, height);
     if ( !window )
         return std::nullopt;
 
@@ -72,5 +72,5 @@ std::optional<Context> createContext(int widht, int height)
         return std::nullopt;
     }
 
-    return Context(std::move(window), std::move(renderer));
+    return Context(std::move(window), std::move(renderer), width, height);
 }

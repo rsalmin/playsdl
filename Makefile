@@ -2,11 +2,14 @@ SDL2_CFLAGS = $(shell sdl2-config --cflags)
 CXXFLAGS = $(SDL2_CFLAGS)
 LD_FLAGS = $(shell pkg-config --libs SDL2_image SDL2_ttf)
 
-all: sdlplay
+all: sdlplay sdlmouse
 
-OBJ = src/main.o src/context.o src/texture.o src/surface.o src/font.o
+OBJ = src/context.o src/texture.o src/surface.o src/font.o
 
-sdlplay: $(OBJ)
+sdlplay: src/main.o $(OBJ)
+	$(CXX) -o $@ $^ $(LD_FLAGS)
+
+sdlmouse: src/mouse.o $(OBJ)
 	$(CXX) -o $@ $^ $(LD_FLAGS)
 
 clean:

@@ -23,6 +23,8 @@ public:
 class Texture
 {
 public:
+    Texture() = delete;
+
     Texture(SDL_Texture* texture, int w, int h): m_texture(texture), m_w(w), m_h(h)
     {
         assert( texture );
