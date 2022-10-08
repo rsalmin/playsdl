@@ -7,17 +7,20 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 
 #include "context.hpp"
 #include "texture.hpp"
 #include "surface.hpp"
 #include "font.hpp"
+#include "music.hpp"
 
 
 class Media {
 public:
    Media() = delete;
-   explicit Media(Texture&&, Texture&&, Texture&&, Texture&&, Texture&& , Texture&&);
+   explicit Media(Texture&&, Texture&&, Texture&&, Texture&&, Texture&& , Texture&&,
+                 MixMusic&&, MixChunk&&, MixChunk&&, MixChunk&&, MixChunk&&);
 
    Texture m_mouseOutTexture;
    Texture m_mouseMotionTexture;
@@ -26,20 +29,44 @@ public:
 
    SDL_Texture* arrowTexture() noexcept {return m_arrowTexture.texture();}
    SDL_Texture* defaultTexture() noexcept {return m_defaultTexture.texture();}
+
+   Mix_Music* music() noexcept {return m_music.get();}
+   Mix_Chunk* scratchChunk() noexcept {return m_scratchChunk.get();}
+   Mix_Chunk* lowChunk() noexcept {return m_lowChunk.get();}
+   Mix_Chunk* mediumChunk() noexcept {return m_mediumChunk.get();}
+   Mix_Chunk* highChunk() noexcept {return m_highChunk.get();}
 protected:
    Texture m_arrowTexture;
    Texture m_defaultTexture;
+
+   MixMusic m_music;
+
+   MixChunk m_scratchChunk;
+   MixChunk m_lowChunk;
+   MixChunk m_mediumChunk;
+   MixChunk m_highChunk;
 };
 
-Media::Media(Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture, Texture&& arrowTexture, Texture&& defaultTexture):
+Media::Media(
+    Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture,
+    Texture&& arrowTexture, Texture&& defaultTexture,
+    MixMusic&& music, MixChunk&& scratchChunk, MixChunk&& lowChunk,
+    MixChunk&& mediumChunk, MixChunk&& highChunk
+):
   m_mouseOutTexture(std::move(outTexture)) ,
   m_mouseMotionTexture(std::move(motionTexture)) ,
   m_mouseButtonUpTexture(std::move(upTexture)) ,
   m_mouseButtonDownTexture(std::move(downTexture)),
   m_arrowTexture(std::move(arrowTexture)),
-  m_defaultTexture(std::move(defaultTexture))
+  m_defaultTexture(std::move(defaultTexture)),
+  m_music(std::move(music)),
+  m_scratchChunk(std::move(scratchChunk)),
+  m_lowChunk(std::move(lowChunk)),
+  m_mediumChunk(std::move(mediumChunk)),
+  m_highChunk(std::move(highChunk))
 {
 }
+
 
 class Button {
 public:
@@ -176,6 +203,45 @@ void start(Context& context, Media& media)
                   quit = true;
               }
 
+            if (SDL_KEYDOWN == e.type)
+            {
+                switch (e.key.keysym.sym)
+                {
+                    case SDLK_1:
+                        Mix_PlayChannel(-1, media.highChunk(), 0);
+                        break;
+                    case SDLK_2:
+                        Mix_PlayChannel(-1, media.mediumChunk(), 0);
+                        break;
+                    case SDLK_3:
+                        Mix_PlayChannel(-1, media.lowChunk(), 0);
+                        break;
+                    case SDLK_4:
+                        Mix_PlayChannel(-1, media.scratchChunk(), 0);
+                        break;
+                    case SDLK_9:
+                        if ( 0 == Mix_PlayingMusic() )
+                        {
+                            Mix_PlayMusic( media.music(), -1);
+                        }
+                        else
+                        {
+                            if (1 == Mix_PausedMusic())
+                            {
+                                Mix_ResumeMusic();
+                            }
+                            else
+                            {
+                                Mix_PauseMusic();
+                            }
+                        }
+                        break;
+                    case SDLK_0:
+                        Mix_HaltMusic();
+                        break;
+                };
+            }
+
               for(auto& button : buttons)
                   button.handleEvent(e);
         }
@@ -250,9 +316,27 @@ int main()
     if ( !defaultImageOpt )
         return -1;
 
+    auto music = loadMusic("media/beat.wav");
+    if (! music)
+        return -1;
+    auto scratch = loadChunk("media/scratch.wav");
+    if (! scratch)
+        return -1;
+    auto high = loadChunk("media/high.wav");
+    if (! high)
+        return -1;
+    auto medium = loadChunk("media/medium.wav");
+    if (! medium)
+        return -1;
+    auto low = loadChunk("media/low.wav");
+    if (! low)
+        return -1;
+
     Media media(std::move(outTextureOpt).value(), std::move(motionTextureOpt).value(),
         std::move(upTextureOpt).value(), std::move(downTextureOpt).value(),
-        std::move(arrowImageOpt).value(), std::move(defaultImageOpt).value() );
+        std::move(arrowImageOpt).value(), std::move(defaultImageOpt).value(),
+        std::move(music), std::move(scratch), std::move(low),
+        std::move(medium), std::move(high) );
 
     start( context, media );
 

@@ -6,6 +6,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
+#include <SDL_mixer.h>
 
 #include "context.hpp"
 
@@ -69,6 +70,12 @@ std::optional<Context> createContext(int width, int height)
     if ( -1 == TTF_Init() )
     {
         std::cerr << "SDL_ttf could not be initialized! SDL_ttf Error: " << TTF_GetError() << std::endl;
+        return std::nullopt;
+    }
+
+    if (Mix_OpenAudio( 44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0 )
+    {
+        std::cerr << "SDL_mixer could not be initialized! SDL_mixer Error: " << Mix_GetError() << std::endl;
         return std::nullopt;
     }
 
