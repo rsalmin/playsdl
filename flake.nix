@@ -8,7 +8,7 @@
     let pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in  {
     packages.x86_64-linux.sdlmouse = pkgs.stdenv.mkDerivation {
-          pname = "sdlplay";
+          pname = "sdlmouse";
           version = "0.1";
           src = self;
 
