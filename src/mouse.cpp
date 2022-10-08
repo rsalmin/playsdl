@@ -16,19 +16,28 @@
 
 class Media {
 public:
-   explicit Media(Texture&&, Texture&&, Texture&&, Texture&&);
+   Media() = delete;
+   explicit Media(Texture&&, Texture&&, Texture&&, Texture&&, Texture&& , Texture&&);
 
    Texture m_mouseOutTexture;
    Texture m_mouseMotionTexture;
    Texture m_mouseButtonUpTexture;
    Texture m_mouseButtonDownTexture;
+
+   SDL_Texture* arrowTexture() noexcept {return m_arrowTexture.texture();}
+   SDL_Texture* defaultTexture() noexcept {return m_defaultTexture.texture();}
+protected:
+   Texture m_arrowTexture;
+   Texture m_defaultTexture;
 };
 
-Media::Media(Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture):
+Media::Media(Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture, Texture&& arrowTexture, Texture&& defaultTexture):
   m_mouseOutTexture(std::move(outTexture)) ,
   m_mouseMotionTexture(std::move(motionTexture)) ,
   m_mouseButtonUpTexture(std::move(upTexture)) ,
-  m_mouseButtonDownTexture(std::move(downTexture))
+  m_mouseButtonDownTexture(std::move(downTexture)),
+  m_arrowTexture(std::move(arrowTexture)),
+  m_defaultTexture(std::move(defaultTexture))
 {
 }
 
@@ -100,6 +109,45 @@ void Button::render(Context& ctx, Media& media)
     SDL_RenderCopy( ctx.renderer(), pointer->texture(), NULL, &textPosition );
 }
 
+class Arrow {
+public:
+  enum class ArrowState { Left, Up, Right, Down, Default };
+
+  explicit Arrow(const SDL_Rect& bounds): m_bounds(bounds) {}
+
+  void setState( ArrowState  state) noexcept { m_arrowState = state; }
+
+  void render(Context& ctx, Media& media);
+
+protected:
+  ArrowState m_arrowState { ArrowState::Default };
+  SDL_Rect m_bounds {.x = 0, .y = 0, .w = 0, .h = 0};
+};
+
+void Arrow::render(Context& ctx, Media& media)
+{
+    SDL_Texture* arrowTexture = media.arrowTexture();
+    SDL_Texture* defaultTexture = media.defaultTexture();
+
+    switch (m_arrowState) {
+        case ArrowState::Left:
+            SDL_RenderCopyEx( ctx.renderer(), arrowTexture, NULL, &m_bounds, 270, NULL, SDL_FLIP_NONE );
+            break;
+        case ArrowState::Up:
+            SDL_RenderCopy( ctx.renderer(), arrowTexture, NULL, &m_bounds );
+            break;
+        case ArrowState::Right:
+            SDL_RenderCopyEx( ctx.renderer(), arrowTexture, NULL, &m_bounds, 90, NULL, SDL_FLIP_NONE );
+            break;
+        case ArrowState::Down:
+            SDL_RenderCopyEx( ctx.renderer(), arrowTexture, NULL, &m_bounds, 180, NULL, SDL_FLIP_NONE );
+            break;
+        case ArrowState::Default:
+            SDL_RenderCopy( ctx.renderer(), defaultTexture, NULL, &m_bounds);
+            break;
+    };
+}
+
 void start(Context& context, Media& media)
 {
     const int w2 = context.width() / 2;
@@ -111,6 +159,8 @@ void start(Context& context, Media& media)
         Button({.x =  0, .y = h2, .w = w2, .h = h2}) ,
         Button({.x = w2, .y = h2, .w = w2, .h = h2})
     };
+
+    Arrow arrow({.x = w2 - 100, .y = h2 - 100, .w = 200, .h = 200});
 
     SDL_Event e;
     bool quit = false;
@@ -128,14 +178,37 @@ void start(Context& context, Media& media)
 
               for(auto& button : buttons)
                   button.handleEvent(e);
-
-             SDL_RenderClear( context.renderer() );
-
-             for(auto& button : buttons)
-                 button.render(context, media);
-
-            SDL_RenderPresent( context.renderer() );
         }
+
+       const std::uint8_t* currentKeyStates = SDL_GetKeyboardState( NULL );
+       if (currentKeyStates[ SDL_SCANCODE_UP ] )
+       {
+           arrow.setState( Arrow::ArrowState::Up );
+       }
+       else if (currentKeyStates[ SDL_SCANCODE_DOWN ] )
+       {
+           arrow.setState( Arrow::ArrowState::Down );
+       }
+       else if (currentKeyStates[ SDL_SCANCODE_LEFT ] )
+       {
+           arrow.setState( Arrow::ArrowState::Left );
+       }
+       else if (currentKeyStates[ SDL_SCANCODE_RIGHT ] )
+       {
+           arrow.setState( Arrow::ArrowState::Right );
+       }
+       else
+       {
+           arrow.setState( Arrow::ArrowState::Default );
+       }
+
+        SDL_RenderClear( context.renderer() );
+
+        for(auto& button : buttons)
+            button.render(context, media);
+
+       arrow.render(context, media);
+       SDL_RenderPresent( context.renderer() );
     }
 }
 
@@ -148,28 +221,40 @@ int main()
     auto contextOpt = createContext(SCREEN_WIDTH, SCREEN_HEIGHT);
     if ( !contextOpt )
         return -1;
+    auto context = std::move(contextOpt).value();
 
     auto font = loadFont("media/lazy.ttf");
     if ( !font )
         return -1;
 
     SDL_Color textColor = {0, 0, 0};
-    auto outTextureOpt = textureFromText(contextOpt.value(), "Mouse Out", font, textColor);
+    auto outTextureOpt = textureFromText(context, "Mouse Out", font, textColor);
     if ( !outTextureOpt )
         return -1;
-    auto motionTextureOpt = textureFromText(contextOpt.value(), "Mouse Motion", font, textColor);
+    auto motionTextureOpt = textureFromText(context, "Mouse Motion", font, textColor);
     if ( !motionTextureOpt )
         return -1;
-    auto upTextureOpt = textureFromText(contextOpt.value(), "Mouse Up", font, textColor);
+    auto upTextureOpt = textureFromText(context, "Mouse Up", font, textColor);
     if ( !upTextureOpt )
         return -1;
-    auto downTextureOpt = textureFromText(contextOpt.value(), "Mouse Down", font, textColor);
+
+    auto downTextureOpt = textureFromText(context, "Mouse Down", font, textColor);
     if ( !downTextureOpt )
         return -1;
 
+    auto arrowImageOpt = loadTexture("media/up.png", context);
+    if ( !arrowImageOpt )
+        return -1;
+
+    auto defaultImageOpt = loadTexture("media/default.png", context);
+    if ( !defaultImageOpt )
+        return -1;
+
     Media media(std::move(outTextureOpt).value(), std::move(motionTextureOpt).value(),
-        std::move(upTextureOpt).value(), std::move(downTextureOpt).value() );
-    start( contextOpt.value(), media );
+        std::move(upTextureOpt).value(), std::move(downTextureOpt).value(),
+        std::move(arrowImageOpt).value(), std::move(defaultImageOpt).value() );
+
+    start( context, media );
 
     SDL_Quit();
 }
