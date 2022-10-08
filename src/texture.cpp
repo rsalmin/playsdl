@@ -11,6 +11,12 @@
 #include "context.hpp"
 #include "texture.hpp"
 
+void Texture::renderAt(Context& ctx, int x, int y)
+{
+    SDL_Rect rect{.x = x, .y = y, .w = m_w, .h = m_h };
+    SDL_RenderCopy( ctx.renderer(), texture(), NULL, &rect);
+}
+
 std::optional<Texture> loadTexture(const std::filesystem::path& path, Context& ctx)
 {
   SDL_Surface* surface = IMG_Load( path.c_str() );

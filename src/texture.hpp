@@ -45,6 +45,8 @@ public:
     int width() const noexcept {return m_w;}
     int height() const noexcept {return m_h;}
 
+    void renderAt(Context& , int x, int y);
+
 protected:
     std::unique_ptr<SDL_Texture> m_texture;
     int m_w {0};

@@ -20,7 +20,7 @@ class Media {
 public:
    Media() = delete;
    explicit Media(Texture&&, Texture&&, Texture&&, Texture&&, Texture&& , Texture&&,
-                 MixMusic&&, MixChunk&&, MixChunk&&, MixChunk&&, MixChunk&&);
+                 MixMusic&&, MixChunk&&, MixChunk&&, MixChunk&&, MixChunk&&, Texture&&);
 
    Texture m_mouseOutTexture;
    Texture m_mouseMotionTexture;
@@ -29,6 +29,8 @@ public:
 
    SDL_Texture* arrowTexture() noexcept {return m_arrowTexture.texture();}
    SDL_Texture* defaultTexture() noexcept {return m_defaultTexture.texture();}
+
+   Texture& info() noexcept {return m_info;}
 
    Mix_Music* music() noexcept {return m_music.get();}
    Mix_Chunk* scratchChunk() noexcept {return m_scratchChunk.get();}
@@ -45,13 +47,15 @@ protected:
    MixChunk m_lowChunk;
    MixChunk m_mediumChunk;
    MixChunk m_highChunk;
+
+   Texture m_info;
 };
 
 Media::Media(
     Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture,
     Texture&& arrowTexture, Texture&& defaultTexture,
     MixMusic&& music, MixChunk&& scratchChunk, MixChunk&& lowChunk,
-    MixChunk&& mediumChunk, MixChunk&& highChunk
+    MixChunk&& mediumChunk, MixChunk&& highChunk, Texture&& info
 ):
   m_mouseOutTexture(std::move(outTexture)) ,
   m_mouseMotionTexture(std::move(motionTexture)) ,
@@ -63,7 +67,8 @@ Media::Media(
   m_scratchChunk(std::move(scratchChunk)),
   m_lowChunk(std::move(lowChunk)),
   m_mediumChunk(std::move(mediumChunk)),
-  m_highChunk(std::move(highChunk))
+  m_highChunk(std::move(highChunk)),
+  m_info(std::move(info))
 {
 }
 
@@ -273,6 +278,8 @@ void start(Context& context, Media& media)
         for(auto& button : buttons)
             button.render(context, media);
 
+        media.info().renderAt(context, w2 - media.info().width()/2, 50);
+
        arrow.render(context, media);
        SDL_RenderPresent( context.renderer() );
     }
@@ -332,11 +339,17 @@ int main()
     if (! low)
         return -1;
 
+    std::stringstream str;
+    str << "Milliseconds for initalizing and load media : " << SDL_GetTicks();
+    auto infoOpt = textureFromText(context,  str.str().c_str(), font, textColor);
+    if (! infoOpt)
+        return -1;
+
     Media media(std::move(outTextureOpt).value(), std::move(motionTextureOpt).value(),
         std::move(upTextureOpt).value(), std::move(downTextureOpt).value(),
         std::move(arrowImageOpt).value(), std::move(defaultImageOpt).value(),
         std::move(music), std::move(scratch), std::move(low),
-        std::move(medium), std::move(high) );
+        std::move(medium), std::move(high), std::move(infoOpt).value() );
 
     start( context, media );
 
