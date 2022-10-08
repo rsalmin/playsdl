@@ -14,14 +14,18 @@ sdlmouse: src/mouse.o $(OBJ)
 
 clean:
 	-rm -f sdlplay
+	-rm -f sdlmouse
 	-rm -f src/*.o
 
 install: all
 	mkdir -p ${PREFIX}/bin
 	cp -f sdlplay ${PREFIX}/bin
 	chmod 755 ${PREFIX}/bin/sdlplay
+	cp -f sdlmouse ${PREFIX}/bin
+	chmod 755 ${PREFIX}/bin/sdlmouse
 
 uninstall:
 	rm -f ${PREFIX}/bin/sdlplay
+	rm -f ${PREFIX}/bin/sdlmouse
 
 .PHONY: all clean install uninstall
