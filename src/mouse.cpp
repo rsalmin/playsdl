@@ -1,8 +1,10 @@
 #include <iostream>
+#include <iomanip>
 #include <memory>
 #include <filesystem>
 #include <optional>
 #include <cassert>
+#include <chrono>
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -14,13 +16,28 @@
 #include "surface.hpp"
 #include "font.hpp"
 #include "music.hpp"
+#include "fps_counter.hpp"
 
+class TextMaker
+{
+public:
+  TextMaker(Font&& font): m_font(std::move(font)) { assert(m_font);}
+
+  std::optional<Texture> fromString(Context& ctx, const std::string& str)
+  {
+     return textureFromText(ctx, str.c_str(), m_font, m_textColor);
+  }
+private:
+  Font m_font;
+  SDL_Color m_textColor {0, 0, 0};
+};
 
 class Media {
 public:
    Media() = delete;
    explicit Media(Texture&&, Texture&&, Texture&&, Texture&&, Texture&& , Texture&&,
-                 MixMusic&&, MixChunk&&, MixChunk&&, MixChunk&&, MixChunk&&, Texture&&);
+                 MixMusic&&, MixChunk&&, MixChunk&&, MixChunk&&, MixChunk&&, Texture&&,
+                 TextMaker&&);
 
    Texture m_mouseOutTexture;
    Texture m_mouseMotionTexture;
@@ -37,25 +54,30 @@ public:
    Mix_Chunk* lowChunk() noexcept {return m_lowChunk.get();}
    Mix_Chunk* mediumChunk() noexcept {return m_mediumChunk.get();}
    Mix_Chunk* highChunk() noexcept {return m_highChunk.get();}
+
+   void updateInfo(Context& ctx, const std::string& str);
 protected:
-   Texture m_arrowTexture;
-   Texture m_defaultTexture;
+    Texture m_arrowTexture;
+    Texture m_defaultTexture;
 
-   MixMusic m_music;
+    MixMusic m_music;
 
-   MixChunk m_scratchChunk;
-   MixChunk m_lowChunk;
-   MixChunk m_mediumChunk;
-   MixChunk m_highChunk;
+    MixChunk m_scratchChunk;
+    MixChunk m_lowChunk;
+    MixChunk m_mediumChunk;
+    MixChunk m_highChunk;
 
-   Texture m_info;
+    Texture m_info;
+
+    TextMaker m_textMaker;
 };
 
 Media::Media(
     Texture&& outTexture, Texture&& motionTexture, Texture&& upTexture, Texture&& downTexture,
     Texture&& arrowTexture, Texture&& defaultTexture,
     MixMusic&& music, MixChunk&& scratchChunk, MixChunk&& lowChunk,
-    MixChunk&& mediumChunk, MixChunk&& highChunk, Texture&& info
+    MixChunk&& mediumChunk, MixChunk&& highChunk, Texture&& info,
+    TextMaker&& textMaker
 ):
   m_mouseOutTexture(std::move(outTexture)) ,
   m_mouseMotionTexture(std::move(motionTexture)) ,
@@ -68,10 +90,17 @@ Media::Media(
   m_lowChunk(std::move(lowChunk)),
   m_mediumChunk(std::move(mediumChunk)),
   m_highChunk(std::move(highChunk)),
-  m_info(std::move(info))
+  m_info(std::move(info)),
+  m_textMaker(std::move(textMaker))
 {
 }
 
+void Media::updateInfo(Context& ctx, const std::string& str)
+{
+    auto infoOpt = m_textMaker.fromString(ctx, str);
+    if (infoOpt)
+        m_info = std::move(infoOpt).value();
+}
 
 class Button {
 public:
@@ -197,6 +226,9 @@ void start(Context& context, Media& media)
     SDL_Event e;
     bool quit = false;
 
+    std::uint32_t lastFPS10 = 0;
+    FPSCounter fpsCounter;
+
     while ( !quit )
     {
         while ( SDL_PollEvent( &e ) )
@@ -282,6 +314,16 @@ void start(Context& context, Media& media)
 
        arrow.render(context, media);
        SDL_RenderPresent( context.renderer() );
+       ++fpsCounter;
+
+       const std::uint32_t fps10 = fpsCounter.fps10();
+       if (lastFPS10 != fps10)
+       {
+           std::stringstream str;
+           str << "fps : " << std::fixed << std::setprecision(1) << (fps10 / 10.0);
+           media.updateInfo(context, str.str());
+           lastFPS10 = fps10;
+       }
     }
 }
 
@@ -299,19 +341,19 @@ int main()
     auto font = loadFont("media/lazy.ttf");
     if ( !font )
         return -1;
+    auto textMaker = TextMaker(std::move(font));
 
-    SDL_Color textColor = {0, 0, 0};
-    auto outTextureOpt = textureFromText(context, "Mouse Out", font, textColor);
+    auto outTextureOpt = textMaker.fromString(context, "Mouse Out");
     if ( !outTextureOpt )
         return -1;
-    auto motionTextureOpt = textureFromText(context, "Mouse Motion", font, textColor);
+    auto motionTextureOpt = textMaker.fromString(context, "Mouse Motion");
     if ( !motionTextureOpt )
         return -1;
-    auto upTextureOpt = textureFromText(context, "Mouse Up", font, textColor);
+    auto upTextureOpt = textMaker.fromString(context, "Mouse Up");
     if ( !upTextureOpt )
         return -1;
 
-    auto downTextureOpt = textureFromText(context, "Mouse Down", font, textColor);
+    auto downTextureOpt = textMaker.fromString(context, "Mouse Down");
     if ( !downTextureOpt )
         return -1;
 
@@ -341,7 +383,7 @@ int main()
 
     std::stringstream str;
     str << "Milliseconds for initalizing and load media : " << SDL_GetTicks();
-    auto infoOpt = textureFromText(context,  str.str().c_str(), font, textColor);
+    auto infoOpt = textMaker.fromString(context,   str.str());
     if (! infoOpt)
         return -1;
 
@@ -349,7 +391,8 @@ int main()
         std::move(upTextureOpt).value(), std::move(downTextureOpt).value(),
         std::move(arrowImageOpt).value(), std::move(defaultImageOpt).value(),
         std::move(music), std::move(scratch), std::move(low),
-        std::move(medium), std::move(high), std::move(infoOpt).value() );
+        std::move(medium), std::move(high), std::move(infoOpt).value(),
+        std::move(textMaker) );
 
     start( context, media );
 

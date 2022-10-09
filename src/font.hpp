@@ -17,3 +17,5 @@ public:
 
 
 std::unique_ptr<TTF_Font> loadFont(const std::filesystem::path& path);
+
+using Font = std::unique_ptr<TTF_Font>;
