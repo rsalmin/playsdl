@@ -17,6 +17,7 @@
 #include "font.hpp"
 #include "music.hpp"
 #include "fps_counter.hpp"
+#include "ball.hpp"
 
 class TextMaker
 {
@@ -223,11 +224,15 @@ void start(Context& context, Media& media)
 
     Arrow arrow({.x = w2 - 100, .y = h2 - 100, .w = 200, .h = 200});
 
+    Ball ball(vec2{100, 100}, 10, vec2{5, 5});
+
     SDL_Event e;
     bool quit = false;
 
     std::uint32_t lastFPS10 = 0;
     FPSCounter fpsCounter;
+
+    std::chrono::steady_clock::time_point lastTime = std::chrono::steady_clock::now();
 
     while ( !quit )
     {
@@ -305,15 +310,21 @@ void start(Context& context, Media& media)
            arrow.setState( Arrow::ArrowState::Default );
        }
 
-        SDL_RenderClear( context.renderer() );
+       // Unpdate scene
+       const auto now = std::chrono::steady_clock::now();
+       const float deltaT = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTime).count() / 1000.0;
+       ball.p() += ball.v() * deltaT;
+       lastTime = now;
 
+        // Let's Render
+        SDL_RenderClear( context.renderer() );
         for(auto& button : buttons)
             button.render(context, media);
-
         media.info().renderAt(context, w2 - media.info().width()/2, 50);
+        arrow.render(context, media);
+        ball.render(context);
+        SDL_RenderPresent( context.renderer() );
 
-       arrow.render(context, media);
-       SDL_RenderPresent( context.renderer() );
        ++fpsCounter;
 
        const std::uint32_t fps10 = fpsCounter.fps10();
