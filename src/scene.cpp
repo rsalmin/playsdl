@@ -10,9 +10,15 @@ Scene::Scene()
   std::uniform_int_distribution<std::mt19937::result_type> rndVX(100, 500);
   std::uniform_int_distribution<std::mt19937::result_type> rndVY(100, 500);
   std::uniform_int_distribution<std::mt19937::result_type> rndR(5,50);
+  std::uniform_int_distribution<std::mt19937::result_type> rndSign(0,1);
 
   for(size_t i = 0; i < 10; i++)
-     m_balls.emplace_back(vec2(rndX(rng), rndY(rng)), rndR(rng), vec2(rndVX(rng), rndVY(rng)));
+  {
+     const int signX = 1 - rndSign(rng)*2;
+     const int signY = 1 - rndSign(rng)*2;
+     const vec2 rndVelocity (static_cast<int>(rndVX(rng))*signX, static_cast<int>(rndVY(rng))*signY);
+     m_balls.emplace_back(vec2(rndX(rng), rndY(rng)), rndR(rng), rndVelocity);
+   }
 }
 
 void Scene::update(const Context& ctx, const std::chrono::steady_clock::duration& dt)
@@ -23,11 +29,29 @@ void Scene::update(const Context& ctx, const std::chrono::steady_clock::duration
   {
       b.p() += b.v() * dtMilliseconds;
 
-      if ( b.p().x() > ctx.width() || b.p().x() < 0 )
+      if ( b.p().x() > ctx.width() )
+      {
+        b.p().x() = ctx.width();
         b.v().x() = - b.v().x();
+      }
 
-      if ( b.p().y() > ctx.height() || b.p().y() < 0 )
+      if ( b.p().x() < 0 )
+      {
+        b.p().x() = 0;
+        b.v().x() = - b.v().x();
+      }
+
+      if ( b.p().y() > ctx.height() )
+      {
+        b.p().y() = ctx.height();
         b.v().y() = - b.v().y();
+      }
+
+      if (  b.p().y() < 0 )
+      {
+        b.p().y() = 0;
+        b.v().y() = - b.v().y();
+      }
   }
 }
 
