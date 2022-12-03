@@ -18,6 +18,7 @@
 #include "music.hpp"
 #include "fps_counter.hpp"
 #include "ball.hpp"
+#include "scene.hpp"
 
 class TextMaker
 {
@@ -224,7 +225,7 @@ void start(Context& context, Media& media)
 
     Arrow arrow({.x = w2 - 100, .y = h2 - 100, .w = 200, .h = 200});
 
-    Ball ball(vec2{100, 100}, 10, vec2{5, 5});
+    Scene scene;
 
     SDL_Event e;
     bool quit = false;
@@ -312,8 +313,7 @@ void start(Context& context, Media& media)
 
        // Unpdate scene
        const auto now = std::chrono::steady_clock::now();
-       const float deltaT = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTime).count() / 1000.0;
-       ball.p() += ball.v() * deltaT;
+       scene.update(context, now - lastTime);
        lastTime = now;
 
         // Let's Render
@@ -322,7 +322,7 @@ void start(Context& context, Media& media)
             button.render(context, media);
         media.info().renderAt(context, w2 - media.info().width()/2, 50);
         arrow.render(context, media);
-        ball.render(context);
+        scene.render(context);
         SDL_RenderPresent( context.renderer() );
 
        ++fpsCounter;

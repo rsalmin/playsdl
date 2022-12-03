@@ -4,12 +4,12 @@ LD_FLAGS = $(shell pkg-config --libs SDL2_image SDL2_ttf SDL2_mixer)
 
 all: sdldull sdlplay
 
-OBJ = src/context.o src/texture.o src/surface.o src/font.o src/music.o src/fps_counter.o src/ball.o
+OBJ = src/context.o src/texture.o src/surface.o src/font.o src/music.o src/fps_counter.o src/ball.o src/scene.o
 
 sdldull: src/dull.o $(OBJ)
 	$(CXX) -o $@ $^ $(LD_FLAGS)
 
-sdlplay: src/main.o $(OBJ) src/ball.hpp
+sdlplay: src/main.o $(OBJ) src/ball.hpp src/scene.hpp
 	$(CXX) -o $@ src/main.o $(OBJ) $(LD_FLAGS)
 
 clean:

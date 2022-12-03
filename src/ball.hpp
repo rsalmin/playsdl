@@ -1,5 +1,8 @@
 #pragma once
 
+#include "context.hpp"
+#include <iostream>
+
 class vec2
 {
 public:
@@ -7,6 +10,9 @@ public:
 
   float x() const noexcept {return m_x;}
   float y() const noexcept {return m_y;}
+
+  float& x() noexcept {return m_x;}
+  float& y() noexcept {return m_y;}
 
   vec2& operator+=(const vec2& v) noexcept
   {
@@ -24,6 +30,12 @@ inline vec2 operator*(const vec2& v, float k)
    return vec2{v.x()*k, v.y()*k};
 }
 
+inline std::ostream& operator<<(std::ostream& os, const vec2& v)
+{
+  os << "{" << v.x() << ", " << v.y() << "}";
+  return os;
+}
+
 class Ball
 {
 public:
@@ -32,7 +44,7 @@ public:
   vec2& p() noexcept {return m_p;}
   const vec2& p() const noexcept {return m_p;}
 
-  vec2& v() noexcept {return m_p;}
+  vec2& v() noexcept {return m_v;}
   const vec2& v() const noexcept {return m_v;}
 
   void render(Context& ctx)
